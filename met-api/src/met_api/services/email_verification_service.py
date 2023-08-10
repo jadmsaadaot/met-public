@@ -10,6 +10,7 @@ from met_api.exceptions.business_exception import BusinessException
 from met_api.models import Engagement as EngagementModel
 from met_api.models import EngagementSlug as EngagementSlugModel
 from met_api.models import Survey as SurveyModel
+from met_api.models import Tenant as TenantModel
 from met_api.models.email_verification import EmailVerification
 from met_api.schemas.email_verification import EmailVerificationSchema
 from met_api.services.participant_service import ParticipantService
@@ -45,17 +46,20 @@ class EmailVerificationService:
         cls.validate_fields(email_verification)
         email_address: str = email_verification.get('email_address')
         survey = SurveyModel.get_open(email_verification.get('survey_id'))
-        engagement: EngagementModel = EngagementModel.find_by_id(survey.engagement_id)
+        engagement: EngagementModel = EngagementModel.find_by_id(
+            survey.engagement_id)
         if engagement.is_internal and not email_address.endswith(INTERNAL_EMAIL_DOMAIN):
             raise BusinessException(
                 error='Not an internal email address.',
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
 
         if email_address is not None:
-            participant = ParticipantService.get_or_create_by_email(email_address)
+            participant = ParticipantService.get_or_create_by_email(
+                email_address)
             email_verification['participant_id'] = participant.id
 
-        email_verification['created_by'] = email_verification.get('participant_id')
+        email_verification['created_by'] = email_verification.get(
+            'participant_id')
         email_verification['verification_token'] = uuid.uuid4()
         EmailVerification.create(email_verification, session)
 
@@ -104,9 +108,11 @@ class EmailVerificationService:
             survey, email_verification.get('verification_token'), email_verification.get('type'), participant_id)
         try:
             # user hasn't been created yet.so create token using SA.
-            notification.send_email(subject=subject, email=email_to, html_body=body, args=args, template_id=template_id)
+            notification.send_email(
+                subject=subject, email=email_to, html_body=body, args=args, template_id=template_id)
         except Exception as exc:  # noqa: B902
-            current_app.logger.error('<Notification for registration failed', exc)
+            current_app.logger.error(
+                '<Notification for registration failed', exc)
             raise BusinessException(
                 error='Error sending verification email.',
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR) from exc
@@ -123,17 +129,21 @@ class EmailVerificationService:
     @staticmethod
     def _render_subscribe_email_template(survey: SurveyModel, token, participant_id):
         # url is origin url excluding context path
-        engagement: EngagementModel = EngagementModel.find_by_id(survey.engagement_id)
+        engagement: EngagementModel = EngagementModel.find_by_id(
+            survey.engagement_id)
         engagement_name = engagement.name
-        template_id = current_app.config.get('SUBSCRIBE_EMAIL_TEMPLATE_ID', None)
+        template_id = current_app.config.get(
+            'SUBSCRIBE_EMAIL_TEMPLATE_ID', None)
         template = Template.get_template('subscribe_email.html')
         subject_template = current_app.config.get('SUBSCRIBE_EMAIL_SUBJECT')
         confirm_path = current_app.config.get('SUBSCRIBE_PATH'). \
             format(engagement_id=engagement.id, token=token)
         unsubscribe_path = current_app.config.get('UNSUBSCRIBE_PATH'). \
             format(engagement_id=engagement.id, participant_id=participant_id)
-        confirm_url = notification.get_tenant_site_url(engagement.tenant_id, confirm_path)
-        unsubscribe_url = notification.get_tenant_site_url(engagement.tenant_id, unsubscribe_path)
+        confirm_url = notification.get_tenant_site_url(
+            engagement.tenant_id, confirm_path)
+        unsubscribe_url = notification.get_tenant_site_url(
+            engagement.tenant_id, unsubscribe_path)
         args = {
             'engagement_name': engagement_name,
             'confirm_url': confirm_url,
@@ -150,19 +160,25 @@ class EmailVerificationService:
     @staticmethod
     def _render_survey_email_template(survey: SurveyModel, token):
         # url is origin url excluding context path
-        engagement: EngagementModel = EngagementModel.find_by_id(survey.engagement_id)
+        engagement: EngagementModel = EngagementModel.find_by_id(
+            survey.engagement_id)
         engagement_name = engagement.name
-        template_id = current_app.config.get('VERIFICATION_EMAIL_TEMPLATE_ID', None)
+        template_id = current_app.config.get(
+            'VERIFICATION_EMAIL_TEMPLATE_ID', None)
         template = Template.get_template('email_verification.html')
         subject_template = current_app.config.get('VERIFICATION_EMAIL_SUBJECT')
         survey_path = current_app.config.get('SURVEY_PATH'). \
             format(survey_id=survey.id, token=token)
-        dashboard_path = EmailVerificationService._get_dashboard_path(engagement)
+        engagement_path = EmailVerificationService._get_engagement_path(
+            engagement)
         site_url = notification.get_tenant_site_url(engagement.tenant_id)
+        tenant_name = EmailVerificationService._get_tenant_name(
+            engagement.tenant_id)
         args = {
             'engagement_name': engagement_name,
             'survey_url': f'{site_url}{survey_path}',
-            'engagement_url': f'{site_url}{dashboard_path}',
+            'engagement_url': f'{site_url}{engagement_path}',
+            'tenant_name': tenant_name,
             'end_date': datetime.strftime(engagement.end_date, EmailVerificationService.full_date_format),
         }
         subject = subject_template.format(engagement_name=engagement_name)
@@ -170,18 +186,24 @@ class EmailVerificationService:
             engagement_name=args.get('engagement_name'),
             survey_url=args.get('survey_url'),
             engagement_url=args.get('engagement_url'),
-            end_date=args.get('end_date'),
+            tenant_name=args.get('tenant_name'),
         )
         return subject, body, args, template_id
 
     @staticmethod
-    def _get_dashboard_path(engagement: EngagementModel):
-        engagement_slug = EngagementSlugModel.find_by_engagement_id(engagement.id)
+    def _get_engagement_path(engagement: EngagementModel):
+        engagement_slug = EngagementSlugModel.find_by_engagement_id(
+            engagement.id)
         if engagement_slug:
-            return current_app.config.get('ENGAGEMENT_DASHBOARD_PATH_SLUG'). \
+            return current_app.config.get('ENGAGEMENT_PATH_SLUG'). \
                 format(slug=engagement_slug.slug)
-        return current_app.config.get('ENGAGEMENT_DASHBOARD_PATH'). \
+        return current_app.config.get('ENGAGEMENT_PATH'). \
             format(engagement_id=engagement.id)
+
+    @staticmethod
+    def _get_tenant_name(tenant_id):
+        tenant = TenantModel.find_by_id(tenant_id)
+        return tenant.name
 
     @staticmethod
     def validate_email_verification(email_verification: EmailVerificationSchema):
@@ -201,7 +223,8 @@ class EmailVerificationService:
             verification_created_datetime = datetime.strptime(
                 email_verification.get('created_date'), EmailVerificationService.datetime_format)
             verification_expiry_datetime = verification_created_datetime + \
-                timedelta(hours=EmailVerificationService.verification_expiry_hours)
+                timedelta(
+                    hours=EmailVerificationService.verification_expiry_hours)
             if datetime.now() >= verification_expiry_datetime:
                 raise ValueError('Email verification is expired')
 

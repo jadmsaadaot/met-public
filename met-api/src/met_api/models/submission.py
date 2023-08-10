@@ -3,14 +3,17 @@
 Manages the Submission
 """
 from __future__ import annotations
+
 from datetime import datetime
 from typing import List
+
 from sqlalchemy import ForeignKey
 from sqlalchemy.dialects import postgresql
 
 from met_api.constants.comment_status import Status
-from met_api.models.survey import Survey
+from met_api.constants.user import SYSTEM_REVIEWER
 from met_api.models.participant import Participant
+from met_api.models.survey import Survey
 from met_api.schemas.submission import SubmissionSchema
 
 from .base_model import BaseModel
@@ -39,11 +42,6 @@ class Submission(BaseModel):  # pylint: disable=too-few-public-methods
     staff_note = db.relationship('StaffNote', backref='submission', cascade='all, delete')
 
     @classmethod
-    def get(cls, submission_id) -> Submission:
-        """Get a submission by id."""
-        return db.session.query(Submission).filter_by(id=submission_id).first()
-
-    @classmethod
     def get_by_survey_id(cls, survey_id) -> List[SubmissionSchema]:
         """Get submissions by survey id."""
         return db.session.query(Submission).filter_by(survey_id=survey_id).all()
@@ -63,7 +61,7 @@ class Submission(BaseModel):  # pylint: disable=too-few-public-methods
             const_review_date = None
         else:
             const_comment_status = Status.Approved.value
-            const_reviewed_by = 'System'
+            const_reviewed_by = SYSTEM_REVIEWER
             const_review_date = datetime.utcnow()
 
         new_submission = Submission(

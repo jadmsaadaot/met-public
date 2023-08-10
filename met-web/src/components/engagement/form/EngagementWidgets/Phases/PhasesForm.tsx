@@ -1,12 +1,13 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { Autocomplete, Checkbox, Divider, FormControl, FormControlLabel, Grid, TextField } from '@mui/material';
-import { MetHeader3, MetLabel, PrimaryButton, SecondaryButton } from 'components/common';
+import { MetLabel, PrimaryButton, SecondaryButton } from 'components/common';
 import { EngagementPhases } from 'models/engagementPhases';
 import { useAppDispatch } from 'hooks';
 import { openNotification } from 'services/notificationService/notificationSlice';
-import { postWidgetItem } from 'services/widgetService';
 import { WidgetDrawerContext } from '../WidgetDrawerContext';
 import { WidgetType } from 'models/widget';
+import { useCreateWidgetItemsMutation } from 'apiManager/apiSlices/widgets';
+import { WidgetTitle } from '../WidgetTitle';
 
 interface ISelectOptions {
     id: EngagementPhases;
@@ -20,6 +21,8 @@ const PhasesForm = () => {
     const [isStandalone, setIsStandalone] = useState<boolean>(false);
     const [savingWidgetItems, setSavingWidgetItems] = useState(false);
     const widget = widgets.filter((widget) => widget.widget_type_id === WidgetType.Phases)[0] || null;
+
+    const [createWidgetItems] = useCreateWidgetItemsMutation();
 
     useEffect(() => {
         if (widget && widget.items.length > 0) {
@@ -66,7 +69,7 @@ const PhasesForm = () => {
         };
         try {
             setSavingWidgetItems(true);
-            await postWidgetItem(widget.id, widgetsToUpdate);
+            await createWidgetItems({ widget_id: widget.id, widget_items_data: [widgetsToUpdate] }).unwrap();
             await loadWidgets();
             dispatch(openNotification({ severity: 'success', text: 'Widget successfully added' }));
             handleWidgetDrawerOpen(false);
@@ -80,72 +83,68 @@ const PhasesForm = () => {
     };
 
     return (
-        <>
-            <Grid item xs={12} container alignItems="flex-start" justifyContent={'flex-start'} spacing={3}>
+        <Grid item xs={12} container alignItems="flex-start" justifyContent={'flex-start'} spacing={3}>
+            <Grid item xs={12}>
+                <WidgetTitle widget={widget} />
+                <Divider sx={{ marginTop: '1em' }} />
+            </Grid>
+            <Grid item xs={12} container direction="row" justifyContent={'flex-start'} spacing={1} marginTop="4em">
                 <Grid item xs={12}>
-                    <MetHeader3>The EA Process</MetHeader3>
-                    <Divider sx={{ marginTop: '1em' }} />
+                    <MetLabel>Engagement Phase</MetLabel>
+                    <Autocomplete
+                        data-testid="engagementPhaseSelect"
+                        id="option-selector"
+                        options={options}
+                        value={selectedOption}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label=" "
+                                InputLabelProps={{
+                                    shrink: false,
+                                }}
+                            />
+                        )}
+                        isOptionEqualToValue={(option: ISelectOptions, value: ISelectOptions) => option.id == value.id}
+                        getOptionLabel={(option: ISelectOptions) => option.label}
+                        onChange={(_e: React.SyntheticEvent<Element, Event>, option: ISelectOptions | null) => {
+                            setSelectedOption(option);
+                            setIsStandalone(false);
+                        }}
+                    />
                 </Grid>
-                <Grid item xs={12} container direction="row" justifyContent={'flex-start'} spacing={1} marginTop="4em">
-                    <Grid item xs={12}>
-                        <MetLabel>Engagement Phase</MetLabel>
-                        <Autocomplete
-                            data-testid="engagementPhaseSelect"
-                            id="option-selector"
-                            options={options}
-                            value={selectedOption}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label=" "
-                                    InputLabelProps={{
-                                        shrink: false,
+                <Grid item xs={12}>
+                    <FormControl component="fieldset" variant="standard">
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    data-testid="standalonePhaseCheckbox"
+                                    checked={isStandalone}
+                                    onChange={(event, checked) => {
+                                        setSelectedOption(null);
+                                        setIsStandalone(checked);
                                     }}
                                 />
-                            )}
-                            isOptionEqualToValue={(option: ISelectOptions, value: ISelectOptions) =>
-                                option.id == value.id
                             }
-                            getOptionLabel={(option: ISelectOptions) => option.label}
-                            onChange={(_e: React.SyntheticEvent<Element, Event>, option: ISelectOptions | null) => {
-                                setSelectedOption(option);
-                                setIsStandalone(false);
-                            }}
+                            label="This engagement is a stand-alone engagement"
                         />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <FormControl component="fieldset" variant="standard">
-                            <FormControlLabel
-                                control={
-                                    <Checkbox
-                                        data-testid="standalonePhaseCheckbox"
-                                        checked={isStandalone}
-                                        onChange={(event, checked) => {
-                                            setSelectedOption(null);
-                                            setIsStandalone(checked);
-                                        }}
-                                    />
-                                }
-                                label="This engagement is a stand-alone engagement"
-                            />
-                        </FormControl>
-                    </Grid>
-                </Grid>
-                <Grid item xs={12} container direction="row" spacing={1} justifyContent={'flex-start'} marginTop="8em">
-                    <Grid item>
-                        <PrimaryButton
-                            data-testid="savePhasesWidgetButton"
-                            loading={savingWidgetItems}
-                            disabled={!selectedOption?.id && !isStandalone}
-                            onClick={() => saveWidgetItem()}
-                        >{`Save & Close`}</PrimaryButton>
-                    </Grid>
-                    <Grid item>
-                        <SecondaryButton onClick={() => handleWidgetDrawerOpen(false)}>{`Cancel`}</SecondaryButton>
-                    </Grid>
+                    </FormControl>
                 </Grid>
             </Grid>
-        </>
+            <Grid item xs={12} container direction="row" spacing={1} justifyContent={'flex-start'} marginTop="8em">
+                <Grid item>
+                    <PrimaryButton
+                        data-testid="savePhasesWidgetButton"
+                        loading={savingWidgetItems}
+                        disabled={!selectedOption?.id && !isStandalone}
+                        onClick={() => saveWidgetItem()}
+                    >{`Save & Close`}</PrimaryButton>
+                </Grid>
+                <Grid item>
+                    <SecondaryButton onClick={() => handleWidgetDrawerOpen(false)}>{`Cancel`}</SecondaryButton>
+                </Grid>
+            </Grid>
+        </Grid>
     );
 };
 

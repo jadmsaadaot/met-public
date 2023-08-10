@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { AppConfig } from 'config';
-import { Widget } from 'models/widget';
+import { Widget, WidgetItem } from 'models/widget';
 import { prepareHeaders } from 'apiManager//apiSlices/util';
 
 // Define a service using a base URL and expected endpoints
@@ -25,6 +25,25 @@ export const widgetsApi = createApi({
             }),
             invalidatesTags: ['Widgets'],
         }),
+        updateWidget: builder.mutation<Widget, { id: number; engagementId: number; data: Partial<Widget> }>({
+            query: ({ engagementId, id, data }) => ({
+                url: `widgets/${id}/engagements/${engagementId}`,
+                method: 'PATCH',
+                body: data,
+            }),
+            invalidatesTags: ['Widgets'],
+        }),
+        createWidgetItems: builder.mutation<
+            WidgetItem[],
+            { widget_id: number; widget_items_data: Partial<WidgetItem>[] }
+        >({
+            query: ({ widget_id, widget_items_data }) => ({
+                url: `widgets/${widget_id}/items`,
+                method: 'POST',
+                body: widget_items_data,
+            }),
+            invalidatesTags: ['Widgets'],
+        }),
         sortWidgets: builder.mutation<Widget, { engagementId: number; widgets: Widget[] }>({
             query: ({ engagementId, widgets }) => ({
                 url: `widgets/engagement/${engagementId}/sort_index`,
@@ -35,7 +54,7 @@ export const widgetsApi = createApi({
         }),
         deleteWidget: builder.mutation<Widget, { engagementId: number; widgetId: number }>({
             query: ({ engagementId, widgetId }) => ({
-                url: `widgets/engagement/${engagementId}/widget/${widgetId}`,
+                url: `widgets/${widgetId}/engagements/${engagementId}`,
                 method: 'DELETE',
             }),
             invalidatesTags: (_result, _error, arg) => [{ type: 'Widgets', id: arg.widgetId }],
@@ -47,5 +66,11 @@ export const widgetsApi = createApi({
 
 // Export hooks for usage in functional components, which are
 // auto-generated based on the defined endpoints
-export const { useLazyGetWidgetsQuery, useCreateWidgetMutation, useSortWidgetsMutation, useDeleteWidgetMutation } =
-    widgetsApi;
+export const {
+    useLazyGetWidgetsQuery,
+    useCreateWidgetMutation,
+    useUpdateWidgetMutation,
+    useSortWidgetsMutation,
+    useDeleteWidgetMutation,
+    useCreateWidgetItemsMutation,
+} = widgetsApi;

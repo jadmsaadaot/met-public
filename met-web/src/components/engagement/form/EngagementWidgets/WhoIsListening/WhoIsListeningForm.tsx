@@ -1,14 +1,15 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Autocomplete, Grid, TextField, Divider } from '@mui/material';
-import { MetLabel, PrimaryButton, SecondaryButton, MetHeader3 } from 'components/common';
+import { MetLabel, PrimaryButton, SecondaryButton } from 'components/common';
 import { Contact } from 'models/contact';
 import { useAppDispatch } from 'hooks';
 import { openNotification } from 'services/notificationService/notificationSlice';
-import { postWidgetItems } from 'services/widgetService';
 import { WidgetDrawerContext } from '../WidgetDrawerContext';
 import { WidgetType } from 'models/widget';
 import ContactBlock from './ContactBlock';
 import { WhoIsListeningContext } from './WhoIsListeningContext';
+import { useCreateWidgetItemsMutation } from 'apiManager/apiSlices/widgets';
+import { WidgetTitle } from '../WidgetTitle';
 
 const WhoIsListeningForm = () => {
     const { handleWidgetDrawerOpen, widgets, loadWidgets } = useContext(WidgetDrawerContext);
@@ -17,6 +18,7 @@ const WhoIsListeningForm = () => {
     const dispatch = useAppDispatch();
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [savingWidgetItems, setSavingWidgetItems] = useState(false);
+    const [createWidgetItems] = useCreateWidgetItemsMutation();
 
     const widget = widgets.filter((widget) => widget.widget_type_id === WidgetType.WhoIsListening)[0] || null;
     useEffect(() => {
@@ -68,7 +70,7 @@ const WhoIsListeningForm = () => {
         });
         try {
             setSavingWidgetItems(true);
-            await postWidgetItems(widget.id, widgetsToUpdate);
+            await createWidgetItems({ widget_id: widget.id, widget_items_data: widgetsToUpdate }).unwrap();
             await loadWidgets();
             dispatch(openNotification({ severity: 'success', text: 'Widgets successfully added' }));
             handleWidgetDrawerOpen(false);
@@ -86,7 +88,7 @@ const WhoIsListeningForm = () => {
         <>
             <Grid item xs={12} container alignItems="flex-start" justifyContent={'flex-start'} spacing={3}>
                 <Grid item xs={12}>
-                    <MetHeader3>Who is Listening</MetHeader3>
+                    <WidgetTitle widget={widget} />
                     <Divider sx={{ marginTop: '1em' }} />
                 </Grid>
                 <Grid item xs={12} container direction="row" justifyContent={'flex-start'} spacing={1}>
